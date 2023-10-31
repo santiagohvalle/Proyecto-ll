@@ -1,0 +1,178 @@
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.text.DecimalFormat;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+class Main {
+    static List<Student>students;
+    public static void main(String[] args) throws IOException {
+    // Este método main coordina la ejecución de varias funciones para analizar los datos de los estudiantes y generar informes.
+        fileUpload();
+        showTotalAppCareer();
+        showTotalWomenByCareer();
+        showTotalMenByCareer();
+        showStudentHighestScoreCareer();
+        showStudentHighestScore ();
+        showAverageScoreCareer();
+
+    }
+    //Esta función carga los datos de los estudiantes desde un archivo CSV llamado "student-scores.csv" y los almacena en una lista de objetos Student.
+    static void fileUpload() throws IOException{
+    /*
+    1. Se crea una expresión regular (regex) para dividir las líneas del archivo CSV por comas.
+    2. Se especifica el nombre del archivo a cargar: "student-scores.csv".
+    3. Se utiliza un try-with-resources para abrir un flujo de líneas desde el archivo CSV.
+    4. Se omite la primera línea del archivo que generalmente contiene encabezados.
+    5. Para cada línea restante, se divide en campos utilizando la expresión regular.
+    6. Se crea un objeto Student a partir de los campos y se agrega a la lista students.
+    7. Finalmente, se imprime cada estudiante en la lista.
+    */
+        Pattern pattern = Pattern.compile(",");
+        String filename= "student-scores.csv";
+
+        try(Stream<String> lines = Files.lines(Path.of(filename))){
+        students=lines.skip(1).map((line)->{
+                String[]arr=pattern.split(line);
+                return new Student(Integer.parseInt(arr[0]),arr[1],arr[2],arr[4],arr[9],Integer.parseInt(arr[10]));
+            }).collect(Collectors.toList());
+            students.forEach(System.out::println);
+        }
+    }
+    //Esta función muestra la lista de solicitantes por carrera y el total de solicitantes por carrera.
+    static void showTotalAppCareer(){
+    /*
+    1. Se imprime un encabezado indicando que se mostrará la lista de solicitantes por carrera.
+    2. Se utiliza Java Streams para agrupar a los estudiantes por su aspiración de carrera.
+    3. Se itera a través de las carreras y la lista de estudiantes en cada carrera.
+    4. Se muestra el nombre de la carrera.
+    5. Se itera a través de los estudiantes en la carrera y se muestra cada estudiante.
+    6. Se calcula el total de estudiantes en la carrera y se muestra.
+    */
+        System.out.printf("%nApplicants by career:%n");
+        Map<String, List<Student>> groupedByCareer =
+                students.stream()
+                        .collect(Collectors.groupingBy(Student::getCareerAspiration));
+        groupedByCareer.forEach(
+                (careerAspiration, studentsInCareer) ->
+                {
+                    System.out.println(careerAspiration);
+                    studentsInCareer.forEach(
+                            student -> System.out.printf(" %s%n", student));
+                    int totalStudentsByCareer = studentsInCareer.size();
+                    System.out.println("Total students in "+ careerAspiration +": "+ totalStudentsByCareer);
+                }
+        );
+    }
+    /*
+    Esstas dos funciones siguientes muestran el número total de mujeres y hombres por carrera.
+    1. Se imprime un encabezado indicando que se mostrará el número total de mujeres o hombres por carrera.
+    2. Se utiliza Java Streams para filtrar y contar a las estudiantes mujeres o hombres.
+    3. Los resultados se agrupan por aspiración de carrera y se cuentan.
+    4. Se itera a través de las carreras y el total de mujeres o hombres en cada carrera.
+    5. Se muestra el nombre de la carrera y la cantidad de mujeres o hombres.
+    */
+    // TOTAL DE MUJERES POR CARRERA
+    static void showTotalWomenByCareer(){
+        System.out.printf("%nTotal number of women by career:%n");
+        Map<String, Long> totalWomenByCareer = students.stream()
+                .filter(student -> student.getGender().equalsIgnoreCase("Female")) // Filtra solo las estudiantes mujeres
+                .collect(Collectors.groupingBy(Student::getCareerAspiration, Collectors.counting()));
+        
+        totalWomenByCareer.forEach((careerAspiration, totalWomen) ->
+            System.out.printf("In %s, there are %d women%n", careerAspiration, totalWomen)
+        );
+    }
+    // TOTAL DE HOMBRES POR CARRERA
+    static void showTotalMenByCareer(){
+        System.out.printf("%nTotal number of men by career:%n");
+        Map<String, Long> totalMenByCareer = students.stream()
+                .filter(student -> student.getGender().equalsIgnoreCase("Male")) // Filtra solo los estudiantes hombres
+                .collect(Collectors.groupingBy(Student::getCareerAspiration, Collectors.counting()));
+        
+        totalMenByCareer.forEach((careerAspiration, totalMen) ->
+            System.out.printf("In %s, there are %d men%n", careerAspiration, totalMen)
+        );
+    } 
+    //Esta función encuentra y muestra al estudiante con el puntaje más alto (math_score) por carrera.
+    static void showStudentHighestScoreCareer(){
+    /*
+    1. Se imprime un encabezado indicando que se mostrará el estudiante con el puntaje más alto por carrera.
+    2. Se define una función byScore que extrae el puntaje de matemáticas de un estudiante.
+    3. Se crea un comparador descendingScore para ordenar a los estudiantes en orden descendente de puntaje.
+    4. Se utiliza Java Streams para agrupar a los estudiantes por su aspiración de carrera.
+    5. Se itera a través de las carreras y se encuentra al estudiante con el puntaje más alto en cada una.
+    6. Se muestra el nombre del estudiante y su puntaje.
+    */
+        Function<Student, Double> byScore = Student::getMathScore;
+        Comparator<Student> descendingScore =
+                Comparator.comparing(byScore);
+        System.out.printf("%nThe student with the highest score (math_score) by career is: %n");
+        Map<String, List<Student>> groupedByCareer =
+                students.stream()
+                        .collect(Collectors.groupingBy(Student::getCareerAspiration));
+        groupedByCareer.forEach(
+                (careerAspiration, studentsInCareer) ->
+                {
+                    System.out.print(careerAspiration+": ");
+                    Student highestStudent=studentsInCareer.stream().sorted(descendingScore.reversed())
+                            .findFirst()
+                            .get();
+                    System.out.println(highestStudent.getFirstName()+" "+highestStudent.getLastName()+
+                            " ==> score: "+highestStudent.getMathScore());
+                }
+        );
+    }
+    //Esta función encuentra y muestra al estudiante con el puntaje más alto (math_score) entre todos los estudiantes.
+    static void showStudentHighestScore(){
+    /*
+    1. Se imprime un encabezado indicando que se mostrará al estudiante con el puntaje más alto de todos.
+    2. Se define una función byScore que extrae el puntaje de matemáticas de un estudiante.
+    3. Se crea un comparador descendingScore para ordenar a los estudiantes en orden descendente de puntaje.
+    4. Se utiliza Java Streams para ordenar a todos los estudiantes por puntaje en matemáticas y encontrar al primero (el de puntaje más alto).
+    5. Se muestra el nombre del estudiante y su puntaje.
+    */
+        Function<Student, Double> byScore = Student::getMathScore;
+        Comparator<Student> descendingScore =
+                Comparator.comparing(byScore);
+        Student highestStudent=students.stream()
+                .sorted(descendingScore.reversed())
+                .findFirst()
+                .get();
+                System.out.printf(
+                    "%nThe student with the highest score of all is: %s",
+                    highestStudent.getFirstName() + " " + highestStudent.getLastName() + " ==> score: " + highestStudent.getMathScore(),"!!!");
+    }
+    //Esta función calcula y muestra el puntaje promedio (math_score) por carrera.
+    static void showAverageScoreCareer() {
+    /*
+    1. Se utiliza Java Streams para agrupar a los estudiantes por su aspiración de carrera.
+    2. Se imprime un encabezado que indica que se mostrará el puntaje promedio por carrera.
+    3. Se crea un objeto DecimalFormat para formatear el promedio con un solo decimal.
+    4. Se itera a través de las carreras y se calcula el promedio de puntaje en matemáticas para cada carrera.
+    5. Se muestra el nombre de la carrera y el puntaje promedio.
+    */
+    Map<String, List<Student>> groupedByCareer =
+            students.stream()
+                    .collect(Collectors.groupingBy(Student::getCareerAspiration));
+    System.out.println("\n\nAverage score (math_score) by career is:");
+
+    DecimalFormat df = new DecimalFormat("#.#");
+
+    groupedByCareer.forEach((careerAspiration, studentsByCareer) -> {
+        System.out.print(careerAspiration + ": ");
+        double average = studentsByCareer
+                .stream()
+                .mapToDouble(Student::getMathScore)
+                .average()
+                .orElse(0.0);
+        System.out.println(df.format(average));
+    });
+}
+}
